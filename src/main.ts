@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from './app-module.ts';
+import { AppModule } from './app.module.ts';
 import {readFileSync} from "node:fs";
 
 
@@ -19,9 +19,7 @@ async function bootstrap() {
         app.enableCors();
 
         const config = new DocumentBuilder()
-            .setTitle('Business Logic API')
-            .setDescription('API для работы с бизнес-логикой')
-            .setVersion('1.0')
+            .setTitle('API')
             .build();
 
         const document = SwaggerModule.createDocument(app, config);
