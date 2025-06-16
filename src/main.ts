@@ -1,45 +1,39 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from './app-module';
-import axios from 'axios';
-import * as Entities from 'database-entity-service-lib';
-import { TypeOrmModuleOptions } from 'typeorm';
+import { AppModule } from './app-module.ts';
+import {readFileSync} from "node:fs";
 
-const allEntities = Object.values(Entities).filter(
-    (entity: any) => typeof entity === 'function' && entity.name && entity.prototype && entity.prototype.constructor
-);
 
-async function getDbConfig(): Promise<TypeOrmModuleOptions> {
-    const response = await axios.get('http://localhost:40001/internal/data-source', {
-        headers: { 'service-token': process.env.INTERNAL_SERVICE_TOKEN || 'default-token' },
-    });
-    // Remove properties that are not part of TypeOrmModuleOptions
-    const { options, ...rest } = response.data;
-    return {
-        ...(options || rest),
-        entities: allEntities,
-    };
-}
 
 async function bootstrap() {
-    const dbConfig = await getDbConfig();
-    const app = await NestFactory.create(AppModule.forRoot(dbConfig), {
-        bufferLogs: true,
-    });
-    app.useLogger(app.get('Logger'));
-    app.setGlobalPrefix('api');
-    app.enableCors();
+    let serviceConfigFileContent = readFileSync('./configs/service-config.json', 'utf8');
+    let serviceConfig = JSON.parse(serviceConfigFileContent);
+    const port = serviceConfig.port;
+    try {
 
-    const config = new DocumentBuilder()
-        .setTitle('Business Logic API')
-        .setDescription('API для работы с бизнес-логикой')
-        .setVersion('1.0')
-        .build();
+        console.log('DataSource initialized successfully');
+        const app = await NestFactory.create(AppModule);
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document);
+        // app.useLogger(app.get('Logger'));
+        app.setGlobalPrefix('api');
+        app.enableCors();
 
-    await app.listen(3000);
+        const config = new DocumentBuilder()
+            .setTitle('Business Logic API')
+            .setDescription('API для работы с бизнес-логикой')
+            .setVersion('1.0')
+            .build();
+
+        const document = SwaggerModule.createDocument(app, config);
+        SwaggerModule.setup('api', app, document);
+
+        await app.listen(port);
+        console.log('Business logic service is running on port', port);
+
+    } catch (error) {
+        console.error('Failed to start application:', error);
+        process.exit(1);
+    }
 }
 
 bootstrap().catch((err) => {

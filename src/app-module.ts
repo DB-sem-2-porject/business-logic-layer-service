@@ -1,18 +1,12 @@
-import { DynamicModule, Module } from '@nestjs/common';
-import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { ProviderProductModule } from './modules/provider-product/provider-product.module.ts';
+import { Module } from '@nestjs/common';
 import { TradingPointModule } from './modules/trading-point/trading-point.module.ts';
+import { HttpModule } from '@nestjs/axios';
 
-@Module({})
-export class AppModule {
-    static forRoot(dbConfig: TypeOrmModuleOptions): DynamicModule {
-        return {
-            module: AppModule,
-            imports: [
-                TypeOrmModule.forRoot(dbConfig),
-                TradingPointModule,
-                ProviderProductModule,
-            ],
-        };
-    }
-}
+@Module({
+    imports: [
+        TradingPointModule,
+        // ProviderProductModule,
+        HttpModule,
+    ],
+})
+export class AppModule {}

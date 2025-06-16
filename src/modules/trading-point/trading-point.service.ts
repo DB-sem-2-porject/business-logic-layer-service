@@ -1,20 +1,42 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
-import { TradingPointService as LibTradingPointService } from 'database-entity-service-lib';
-import { TradingPoint } from 'database-entity-service-lib';
+import {BadRequestException, ConflictException, Injectable} from '@nestjs/common';
 
 @Injectable()
 export class TradingPointService {
-  constructor(private readonly libTradingPointService: LibTradingPointService) {}
+  private readonly graphqlEndpoint = process.env.DATABASE_ACCESS_SERVICE_GRAPHQL || 'http://localhost:40002/graphql';
 
-  async readAll(): Promise<TradingPoint[]> {
-    return this.libTradingPointService.read();
+  private async graphqlRequest<T>(query: string, variables?: any): Promise<T> {
+    const res = await fetch(this.graphqlEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+    });
+    const json = await res.json();
+    if (json.errors) throw new Error(JSON.stringify(json.errors));
+    return json.data;
   }
 
-  async readOne(id: number): Promise<TradingPoint | null> {
-    return this.libTradingPointService.readOne({ where: { id } });
+  async readAll(): Promise<any[]> {
+    const query = `query { trading_points { id name type address sizeSqm rentCost utilityCost counterCount floorsCount openingDate active } }`;
+    const data = await this.graphqlRequest<{ trading_points: any[] }>(query);
+    return data.trading_points;
   }
 
-  private validate(data: Partial<TradingPoint>) {
+  async readOne(id: number): Promise<any | null> {
+    const query = `query($id: Float!) { trading_point(id: $id) { id name type address sizeSqm rentCost utilityCost counterCount floorsCount openingDate active } }`;
+    const data = await this.graphqlRequest<{ trading_point: any }>(query, { id });
+    const tp = data.trading_point;
+    if (!tp) return null;
+    // Приведение openingDate к ISO-строке, если это Date или строка только с датой
+    let date = tp.openingDate;
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      date = date + 'T00:00:00.000Z';
+    } else if (date instanceof Date) {
+      date = date.toISOString();
+    }
+    return { ...tp, openingDate: date };
+  }
+
+  private validate(data: Partial<any>) {
     if (!data.name || data.name.trim() === '') {
       throw new BadRequestException('Name is required');
     }
@@ -35,29 +57,77 @@ export class TradingPointService {
     }
   }
 
-  async create(data: Partial<TradingPoint>): Promise<TradingPoint> {
+  async create(data: Partial<any>): Promise<any> {
     this.validate(data);
-    const exists = await this.libTradingPointService.read({ where: { name: data.name } });
-    if (exists.length > 0) {
+    const all = await this.readAll();
+    if (all.some(tp => tp.name === data.name)) {
       throw new ConflictException('Trading point with this name already exists');
     }
-    return this.libTradingPointService.create(data);
+    const mutation = `mutation(
+      $name: String!,
+      $type: String!,
+      $address: String!,
+      $sizeSqm: Float!,
+      $rentCost: Float!,
+      $utilityCost: Float!,
+      $counterCount: Float!,
+      $floorsCount: Float!,
+      $openingDate: DateTime,
+      $active: Boolean!
+    ) {
+      createTradingPoint(
+        name: $name,
+        type: $type,
+        address: $address,
+        sizeSqm: $sizeSqm,
+        rentCost: $rentCost,
+        utilityCost: $utilityCost,
+        counterCount: $counterCount,
+        floorsCount: $floorsCount,
+        openingDate: $openingDate,
+        active: $active
+      ) {
+        id name type address sizeSqm rentCost utilityCost counterCount floorsCount openingDate active
+      }
+    }`;
+    // Оставляем только нужные переменные
+    const variables = {
+      name: data.name,
+      type: data.type,
+      address: data.address,
+      sizeSqm: data.sizeSqm,
+      rentCost: data.rentCost,
+      utilityCost: data.utilityCost,
+      counterCount: data.counterCount,
+      floorsCount: data.floorsCount,
+      openingDate: data.openingDate,
+      active: data.active,
+    };
+    const result = await this.graphqlRequest<{ createTradingPoint: any }>(mutation, variables);
+    return result.createTradingPoint;
   }
 
-  async update(id: number, data: Partial<TradingPoint>): Promise<TradingPoint | null> {
+  async update(id: number, data: Partial<any>): Promise<any | null> {
     this.validate(data);
     if (data.name) {
-      const exists = await this.libTradingPointService.read({where: { name: data.name }});
-      if (exists.length > 0 && exists[0].id !== id) {
+      const all = await this.readAll();
+      if (all.some(tp => tp.name === data.name && tp.id !== id)) {
         throw new ConflictException('Trading point with this name already exists');
       }
     }
-    await this.libTradingPointService.update({where:{ id }}, data);
-    return this.readOne(id);
+    const mutation = `mutation($id: Float!, $data: TradingPointUpdateInput!) {
+      updateTradingPoint(id: $id, data: $data) {
+        id name type address sizeSqm rentCost utilityCost counterCount floorsCount openingDate active
+      }
+    }`;
+    const variables = { id, data };
+    const result = await this.graphqlRequest<{ updateTradingPoint: any }>(mutation, variables);
+    return result.updateTradingPoint;
   }
 
   async remove(id: number): Promise<void> {
-    await this.libTradingPointService.delete({ id });
+    const mutation = `mutation($id: Float!) { deleteTradingPoint(id: $id) }`;
+    await this.graphqlRequest<void>(mutation, { id });
   }
 }
 
