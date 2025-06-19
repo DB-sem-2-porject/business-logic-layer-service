@@ -26,7 +26,6 @@ export class TradingPointService {
     const data = await this.graphqlRequest<{ trading_point: any }>(query, { id });
     const tp = data.trading_point;
     if (!tp) return null;
-    // Приведение openingDate к ISO-строке, если это Date или строка только с датой
     let date = tp.openingDate;
     if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       date = date + 'T00:00:00.000Z';
@@ -90,7 +89,6 @@ export class TradingPointService {
         id name type address sizeSqm rentCost utilityCost counterCount floorsCount openingDate active
       }
     }`;
-    // Оставляем только нужные переменные
     const variables = {
       name: data.name,
       type: data.type,

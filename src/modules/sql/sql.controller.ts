@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { SqlService } from './sql.service.ts';
 import { ApiOperation, ApiResponse, ApiTags, ApiBody } from '@nestjs/swagger';
-import { SqlQueryDto } from './sql-query.dto.ts';
+import { SqlQueryDto } from './dto/sql-query.dto.ts';
 
 @ApiTags('SQL')
 @Controller('sql')

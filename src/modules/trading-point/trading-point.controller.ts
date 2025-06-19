@@ -1,8 +1,8 @@
 import {Controller, Get, Post, Put, Delete, Param, Body, BadRequestException, NotFoundException} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { TradingPointService } from './trading-point.service.ts';
-import { CreateTradingPointDto } from './create-trading-point.dto.ts';
-import { UpdateTradingPointDto } from './update-trading-point.dto.ts';
+import { CreateTradingPointDto } from './dto/create-trading-point.dto.ts';
+import { UpdateTradingPointDto } from './dto/update-trading-point.dto.ts';
 
 @ApiTags('TradingPoint')
 @Controller('trading-point')
